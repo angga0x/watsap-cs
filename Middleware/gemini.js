@@ -7,7 +7,7 @@ const genAI = new GoogleGenerativeAI('AIzaSyB69xc32TVHjVieu3B8uLkuP_pZ80yZZpY');
 const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
 
 const generationConfig = {
-    temperature: 0.5,
+    temperature: 0.9,
     topP: 0.95,
     topK: 40,
     maxOutputTokens: 8192,
@@ -98,7 +98,7 @@ async function formatOngkirResponse(ongkirData, sender) {
     });
 
     const chatSession = await getChatSession(sender);
-    const aiResponse = await chatSession.sendMessage(`Hasil cek ongkir:\n\n${response}`);
+    const aiResponse = await chatSession.sendMessage(`Kirim hasil cek ongkir dengan emoticon\n\n${response}`);
     return aiResponse.response.text()
 
 
@@ -111,7 +111,7 @@ async function handleUserInteraction(sender, userMessage) {
     if (lowerMessage.includes("ongkir")) {
         ongkirSessions.set(sender, { step: 1 });
 
-        const aiResponse = await chatSession.sendMessage("Silakan ketik nama kecamatan tujuan untuk mengecek ongkir.");
+        const aiResponse = await chatSession.sendMessage("Minta user untuk memasukkan nama kecamatan");
         return aiResponse.response.text();
     }
 
@@ -121,7 +121,7 @@ async function handleUserInteraction(sender, userMessage) {
         if (session.step === 1) {
             const districtList = await getDistrict(userMessage);
             if (districtList === "Data tidak ditemukan.") {
-                const aiResponse = await chatSession.sendMessage("Kecamatan tidak ditemukan. Mohon input ulang dengan lebih spesifik.");
+                const aiResponse = await chatSession.sendMessage("Kecamatan tidak ditemukan. Minta user menginput ulang");
                 return aiResponse.response.text();
             }
 
@@ -139,7 +139,8 @@ async function handleUserInteraction(sender, userMessage) {
             session.districts = districts;
             ongkirSessions.set(sender, session);
 
-            const aiResponse = await chatSession.sendMessage(`Pilih kecamatan dengan opsi angka:\n${districtList}`);
+            const aiResponse = await chatSession.sendMessage(`Beri user pilhan list kecamatan dan minta untuk memilih dengan angka\n${districtList}`)
+            console.log(districtList)
             return aiResponse.response.text();
         }
 
@@ -164,8 +165,8 @@ async function handleUserInteraction(sender, userMessage) {
         }
     }
 
-    const aiResponse = await chatSession.sendMessage(userMessage);
-    return aiResponse.response.text();
+    // const aiResponse = await chatSession.sendMessage(userMessage);
+    // return aiResponse.response.text();
 }
 
 module.exports = { getDistrict, cekOngkir, handleUserInteraction };

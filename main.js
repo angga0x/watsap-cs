@@ -31,7 +31,7 @@ function fileToGenerativePart(path, mimeType) {
 
 // Konfigurasi AI
 const generationConfig = {
-    temperature: 0.5,
+    temperature: 0.9,
     topP: 0.95,
     topK: 40,
     maxOutputTokens: 8192,
@@ -63,7 +63,7 @@ async function connectToWhatsApp() {
 
     async function getChatSession(sender) {
         if (!chatSessions.has(sender)) {
-            const initialPrompt = `Kamu adalah CS Ara. Setiap pertanyaan atau input dari user, jawab sebagai CS Ara. Gunakan bahasa yang Friendly. Gunakan penyebutan aku dan kamu, dan panggilan kak kepada customer.`;
+            const initialPrompt = `Kamu adalah CS Clara. Setiap pertanyaan atau input dari user, jawab sebagai CS Ara. Gunakan bahasa yang Friendly. Gunakan penyebutan aku dan kamu, dan panggilan kak kepada customer.`;
             const chatSession = model.startChat({
                 generationConfig,
                 history: [{ role: "user", parts: [{ text: initialPrompt }] }]
@@ -107,7 +107,8 @@ async function connectToWhatsApp() {
             //await delay(2000);
             await sock.readMessages([msg.key]);
             //await delay(2000);
-            const messageContent = msg.message.conversation || msg.message.extendedTextMessage?.text || "";
+            const messageContent = msg.message.conversation || msg.message.extendedTextMessage?.text || ""
+            console.log('Pesan :', messageContent)
         
             // Selalu periksa handleUserInteraction untuk menentukan respons
             const response = await handleUserInteraction(sender, messageContent);
