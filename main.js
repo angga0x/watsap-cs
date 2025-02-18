@@ -1,6 +1,6 @@
 const { DisconnectReason, makeWASocket, useMultiFileAuthState, downloadMediaMessage } = require('baileys');
 const { GoogleGenerativeAI } = require("@google/generative-ai")
-const { getDistrict, cekOngkir, handleUserInteraction } = require('./Middleware/gemini')
+const { handleUserInteraction } = require('./middleware/gemini')
 const { createWriteStream, unlinkSync } = require('fs');
 const fs = require('fs');
 const path = require('path')
