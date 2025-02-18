@@ -1,0 +1,21 @@
+{
+  "name": "cs",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "@google/generative-ai": "^0.21.0",
+    "axios": "^1.7.9",
+    "baileys": "^6.7.13",
+    "dotenv": "^16.4.7",
+    "fs": "^0.0.1-security",
+    "qrcode-terminal": "^0.12.0",
+    "querystring": "^0.2.1"
+  }
+}
