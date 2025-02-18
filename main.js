@@ -120,7 +120,8 @@ async function connectToWhatsApp() {
                 // Jika tidak ada sesi ongkir, gunakan AI sebagai fallback
                 await processMessage(messageContent, sender, quotedMsg);
             }
-        } else if (messageType === 'imageMessage') {
+        } else if (messageType === 'imageMessage' && sender !== 'status@broadcast') {
+            console.log('Cek sender', sender)
 
             // fungsi membaca pesan
             await sock.readMessages([msg.key])
