@@ -3,7 +3,7 @@ require('dotenv').config();
 const axios = require('axios');
 const querystring = require('querystring');
 
-const genAI = new GoogleGenerativeAI('AIzaSyB69xc32TVHjVieu3B8uLkuP_pZ80yZZpY');
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API);
 const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
 
 function delay(ms) {

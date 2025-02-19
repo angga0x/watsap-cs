@@ -1,20 +1,23 @@
+// Import necessary modules
 const { DisconnectReason, makeWASocket, useMultiFileAuthState, downloadMediaMessage } = require('baileys');
 const { GoogleGenerativeAI } = require("@google/generative-ai")
-const { handleUserInteraction } = require('./middleware/gemini')
+const { handleUserInteraction } = require('./Middleware/gemini')
 const { createWriteStream, unlinkSync } = require('fs');
 const fs = require('fs');
 const path = require('path')
 require('dotenv').config()
 
+// Initialize Gemini AI
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API);
 const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
 
-// Fungsi Delay
+// Delay function
 function delay(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
 
 function fileToGenerativePart(path, mimeType) {
+    // Function to convert file to generative part
     try {
         const fileBuffer = fs.readFileSync(path);
         return {
@@ -29,7 +32,7 @@ function fileToGenerativePart(path, mimeType) {
     }
 }
 
-// Konfigurasi AI
+// AI configuration
 const generationConfig = {
     temperature: 0.9,
     topP: 0.95,
@@ -38,8 +41,10 @@ const generationConfig = {
     responseMimeType: "text/plain",
 };
 
+// Chat sessions map
 const chatSessions = new Map();
 
+// Connect to WhatsApp function
 async function connectToWhatsApp() {
     const { state, saveCreds } = await useMultiFileAuthState('auth_info_baileys');
     const sock = makeWASocket({
@@ -48,6 +53,7 @@ async function connectToWhatsApp() {
         // logger: pino({ level: 'silent' }) // Opsi untuk menonaktifkan log yang berlebihan
     });
 
+    // Connection update listener
     sock.ev.on('connection.update', (update) => {
         const { connection, lastDisconnect } = update;
         if (connection === 'close') {
@@ -61,6 +67,7 @@ async function connectToWhatsApp() {
         }
     });
 
+    // Get chat session function
     async function getChatSession(sender) {
         if (!chatSessions.has(sender)) {
             const initialPrompt = `Kamu adalah CS Clara. Setiap pertanyaan atau input dari user, jawab sebagai CS Ara. Gunakan bahasa yang Friendly. Gunakan penyebutan aku dan kamu, dan panggilan kak kepada customer.`;
@@ -73,11 +80,30 @@ async function connectToWhatsApp() {
         return chatSessions.get(sender);
     }
 
+    // Function to count tokens before sending message
+    async function countTokens(chat) {
+        try {
+            const countResult = await model.countTokens({
+                generateContentRequest: { contents: await chat.getHistory() }
+            })
+            console.log(`Total token saat ini: ${countResult.totalTokens}`);
+            return countResult.totalTokens;
+        } catch (error) {
+            console.error("Error menghitung token:", error);
+            return null;
+        }
+    }
+
+    // Process message function
     async function processMessage(message, sender, quotedMsg) {
         try {
-            const chatSession = await getChatSession(sender);
+
+            const chatSession = await getChatSession(sender)
+            await countTokens(chatSession)
+
             const result = await chatSession.sendMessage(message, { useCache: true });
             const responseText = (await result.response.text())?.replaceAll('**', '') || "Maaf, aku belum paham maksud kamu.";
+            console.log("Penggunaan Token:", result.response.usageMetadata.totalTokenCount);
 
             if (quotedMsg) {
                 await sock.sendMessage(sender, { text: responseText }, { quoted: quotedMsg });
@@ -91,7 +117,10 @@ async function connectToWhatsApp() {
         }
     }
 
+    // creds.update listener
     sock.ev.on('creds.update', saveCreds);
+
+    // messages.upsert listener
     sock.ev.on('messages.upsert', async (m) => {
         const msg = m.messages[0];
         if (!msg?.message || msg.key.fromMe) return;
@@ -110,21 +139,21 @@ async function connectToWhatsApp() {
             const messageContent = msg.message.conversation || msg.message.extendedTextMessage?.text || ""
             console.log('Pesan :', messageContent)
         
-            // Selalu periksa handleUserInteraction untuk menentukan respons
+            // Check handleUserInteraction to determine response
             const response = await handleUserInteraction(sender, messageContent)
-            console.log(response)
+            // console.log(response)
         
             if (response) {
-                // Jika handleUserInteraction menangani pesan, gunakan responsnya
+                // If handleUserInteraction handles the message, use its response
                 await sock.sendMessage(sender, { text: response });
             } else {
-                // Jika tidak ada sesi ongkir, gunakan AI sebagai fallback
+                // If there is no ongkir session, use AI as fallback
                 await processMessage(messageContent, sender, quotedMsg);
             }
         } else if (messageType === 'imageMessage' && sender !== 'status@broadcast') {
             console.log('Cek sender', sender)
 
-            // fungsi membaca pesan
+            // Function to read message
             await sock.readMessages([msg.key])
 
             const mimeType = msg.message.imageMessage.mimetype;
@@ -166,4 +195,5 @@ async function connectToWhatsApp() {
     });
 }
 
+// Connect to WhatsApp
 connectToWhatsApp();
