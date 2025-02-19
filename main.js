@@ -1,15 +1,16 @@
 // Import necessary modules
 const { DisconnectReason, makeWASocket, useMultiFileAuthState, downloadMediaMessage } = require('baileys');
 const { GoogleGenerativeAI } = require("@google/generative-ai")
-const { handleUserInteraction } = require('./Middleware/gemini')
-const { createWriteStream, unlinkSync } = require('fs');
-const fs = require('fs');
+const { handleUserInteraction } = require('./Middleware/cekOngkir')
+const { handleUserQuestion } = require('./Middleware/gemini')
+const { createWriteStream, unlinkSync } = require('fs')
+const fs = require('fs')
 const path = require('path')
 require('dotenv').config()
 
 // Initialize Gemini AI
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API);
-const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash", systemInstruction: "Kamu adalah Clara yang membantu user melakukan pemesanan. Gunakan bahasa yang ramah dan friendly" });
 
 // Delay function
 function delay(ms) {
@@ -19,7 +20,7 @@ function delay(ms) {
 function fileToGenerativePart(path, mimeType) {
     // Function to convert file to generative part
     try {
-        const fileBuffer = fs.readFileSync(path);
+        const fileBuffer = fs.readFileSync(path)
         return {
             inlineData: {
                 data: fileBuffer.toString('base64'),
@@ -133,23 +134,27 @@ async function connectToWhatsApp() {
         console.log(`Message Type: ${messageType}`);
 
         if (messageType === 'conversation' || messageType === 'extendedTextMessage') {
-            //await delay(2000);
-            await sock.readMessages([msg.key]);
-            //await delay(2000);
             const messageContent = msg.message.conversation || msg.message.extendedTextMessage?.text || ""
+            await sock.readMessages([msg.key]);
+            
             console.log('Pesan :', messageContent)
+            
         
             // Check handleUserInteraction to determine response
-            const response = await handleUserInteraction(sender, messageContent)
-            // console.log(response)
-        
-            if (response) {
+            const responseOngkir = await handleUserInteraction(sender, messageContent)
+            const responseProduct = await handleUserQuestion(sender, messageContent)
+
+            if (responseOngkir) {
                 // If handleUserInteraction handles the message, use its response
-                await sock.sendMessage(sender, { text: response });
+                await sock.sendMessage(sender, { text: responseOngkir });
+            } else if (responseProduct) {
+                // If handleUserQuestion handles the message, use its response
+                await sock.sendMessage(sender, { text: responseProduct });
             } else {
-                // If there is no ongkir session, use AI as fallback
+                // If no handler is found, process the message with AI
                 await processMessage(messageContent, sender, quotedMsg);
             }
+
         } else if (messageType === 'imageMessage' && sender !== 'status@broadcast') {
             console.log('Cek sender', sender)
 
