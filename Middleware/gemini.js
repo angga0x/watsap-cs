@@ -6,6 +6,10 @@ const querystring = require('querystring');
 const genAI = new GoogleGenerativeAI('AIzaSyB69xc32TVHjVieu3B8uLkuP_pZ80yZZpY');
 const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
 
+function delay(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
+
 const generationConfig = {
     temperature: 0.9,
     topP: 0.95,
@@ -109,20 +113,31 @@ async function handleUserInteraction(sender, userMessage) {
     const lowerMessage = userMessage.toLowerCase();
 
     if (lowerMessage.includes("ongkir")) {
-        ongkirSessions.set(sender, { step: 1 });
+        ongkirSessions.set(sender, { step: 1 })
 
-        const aiResponse = await chatSession.sendMessage("Minta user untuk memasukkan nama kecamatan");
-        return aiResponse.response.text();
+        const aiResponse = await chatSession.sendMessage("Minta user untuk memasukkan nama kecamatan")
+        return aiResponse.response.text()
     }
 
     if (ongkirSessions.has(sender)) {
-        const session = ongkirSessions.get(sender);
+        const session = ongkirSessions.get(sender)
 
         if (session.step === 1) {
-            const districtList = await getDistrict(userMessage);
+            // const kecamatanResponse = await chatSession.sendMessage('Tulis ulang nama kecamatan ini dan kirim ke saya lagi' + userMessage)
+            // console.log(kecamatanResponse.response.text())
+
+            // await delay(10000)
+
+            let district_name = userMessage.trim()
+
+            if (district_name.toLowerCase().includes('kecamatan')) {
+                district_name = district_name.replace(/kecamatan\s*/i, '').trim()
+            }
+
+            const districtList = await getDistrict(district_name)
             if (districtList === "Data tidak ditemukan.") {
                 const aiResponse = await chatSession.sendMessage("Kecamatan tidak ditemukan. Minta user menginput ulang");
-                return aiResponse.response.text();
+                return aiResponse.response.text()
             }
 
             const districts = districtList.split("\n");

@@ -111,7 +111,8 @@ async function connectToWhatsApp() {
             console.log('Pesan :', messageContent)
         
             // Selalu periksa handleUserInteraction untuk menentukan respons
-            const response = await handleUserInteraction(sender, messageContent);
+            const response = await handleUserInteraction(sender, messageContent)
+            console.log(response)
         
             if (response) {
                 // Jika handleUserInteraction menangani pesan, gunakan responsnya
