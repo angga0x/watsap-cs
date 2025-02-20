@@ -2,7 +2,6 @@
 const { DisconnectReason, makeWASocket, useMultiFileAuthState, downloadMediaMessage } = require('baileys');
 const { GoogleGenerativeAI } = require("@google/generative-ai")
 const { handleUserInteraction } = require('./Middleware/cekOngkir')
-const { handleUserQuestion } = require('./Middleware/gemini')
 const { createWriteStream, unlinkSync } = require('fs')
 const fs = require('fs')
 const path = require('path')
@@ -12,13 +11,17 @@ require('dotenv').config()
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API);
 const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash", systemInstruction: "Kamu adalah Clara yang membantu user melakukan pemesanan. Gunakan bahasa yang ramah dan friendly" });
 
+
+//Keyword Ongkir
+const keywordPayment = ['transfer', 'tf']
+
 // Delay function
 function delay(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
 
+//Function Baca File
 function fileToGenerativePart(path, mimeType) {
-    // Function to convert file to generative part
     try {
         const fileBuffer = fs.readFileSync(path)
         return {
@@ -33,6 +36,64 @@ function fileToGenerativePart(path, mimeType) {
     }
 }
 
+// Functionn Baca JSON
+function readJsonFile() {
+    try {
+        const data = fs.readFile('data/payment.json', 'utf8');
+        const jsonData = JSON.parse(data);
+        console.log(jsonData)
+        return jsonData
+
+    } catch (err) {
+        console.error('Error reading file:', err);
+    }
+}
+
+const chatHistoryFile = path.join(__dirname, 'data/chat_history.json')
+//Function Save Chat History
+async function saveChatHistory(sender, userMessage, botResponse) {
+    let chatHistory = [];
+
+    // Cek apakah file sudah ada
+    if (fs.existsSync(chatHistoryFile)) {
+        const data = fs.readFileSync(chatHistoryFile, 'utf-8');
+        try {
+            chatHistory = JSON.parse(data)
+        } catch (error) {
+            console.error("Error parsing chat history JSON:", error);
+        }
+    }
+
+    // Tambahkan chat baru
+    const newChat = {
+        sender,
+        message: userMessage,
+        response: botResponse,
+        timestamp: new Date().toISOString()
+    };
+
+    chatHistory.push(newChat)
+
+    // Simpan ke file JSON
+    fs.writeFileSync(chatHistoryFile, JSON.stringify(chatHistory, null, 2))
+}
+
+// Function to read chat history
+function getChatHistoryBySender(sender) {
+    if (!fs.existsSync(chatHistoryFile)) return []
+
+    const data = fs.readFileSync(chatHistoryFile, 'utf-8')
+    try {
+        const chatHistory = JSON.parse(data)
+        return chatHistory.filter(chat => chat.sender === sender)
+        
+    } catch (error) {
+        console.error("Error parsing chat history JSON:", error)
+        return []
+    }
+}
+
+
 // AI configuration
 const generationConfig = {
     temperature: 0.9,
@@ -43,7 +104,7 @@ const generationConfig = {
 };
 
 // Chat sessions map
-const chatSessions = new Map();
+const chatSessions = new Map()
 
 // Connect to WhatsApp function
 async function connectToWhatsApp() {
@@ -51,34 +112,33 @@ async function connectToWhatsApp() {
     const sock = makeWASocket({
         printQRInTerminal: true,
         auth: state,
-        // logger: pino({ level: 'silent' }) // Opsi untuk menonaktifkan log yang berlebihan
-    });
+    })
 
     // Connection update listener
     sock.ev.on('connection.update', (update) => {
-        const { connection, lastDisconnect } = update;
+        const { connection, lastDisconnect } = update
         if (connection === 'close') {
-            const shouldReconnect = (lastDisconnect?.error)?.output?.statusCode !== DisconnectReason.loggedOut;
-            console.log('Connection closed due to', lastDisconnect?.error, ', reconnecting:', shouldReconnect);
+            const shouldReconnect = (lastDisconnect?.error)?.output?.statusCode !== DisconnectReason.loggedOut
+            console.log('Connection closed due to', lastDisconnect?.error, ', reconnecting:', shouldReconnect)
             if (shouldReconnect) {
-                connectToWhatsApp();
+                connectToWhatsApp()
             }
         } else if (connection === 'open') {
-            console.log('Opened connection');
+            console.log('Opened connection')
         }
-    });
+    })
 
     // Get chat session function
     async function getChatSession(sender) {
         if (!chatSessions.has(sender)) {
-            const initialPrompt = `Kamu adalah CS Clara. Setiap pertanyaan atau input dari user, jawab sebagai CS Ara. Gunakan bahasa yang Friendly. Gunakan penyebutan aku dan kamu, dan panggilan kak kepada customer.`;
+            const initialPrompt = `Kamu adalah CS Clara, Gunakan bahasa yang Friendly. Gunakan penyebutan aku dan kamu, dan panggilan kak kepada customer.`;
             const chatSession = model.startChat({
                 generationConfig,
                 history: [{ role: "user", parts: [{ text: initialPrompt }] }]
             });
-            chatSessions.set(sender, chatSession);
+            chatSessions.set(sender, chatSession)
         }
-        return chatSessions.get(sender);
+        return chatSessions.get(sender)
     }
 
     // Function to count tokens before sending message
@@ -87,11 +147,11 @@ async function connectToWhatsApp() {
             const countResult = await model.countTokens({
                 generateContentRequest: { contents: await chat.getHistory() }
             })
-            console.log(`Total token saat ini: ${countResult.totalTokens}`);
-            return countResult.totalTokens;
+            console.log(`Total token saat ini: ${countResult.totalTokens}`)
+            return countResult.totalTokens
         } catch (error) {
-            console.error("Error menghitung token:", error);
-            return null;
+            console.error("Error menghitung token:", error)
+            return null
         }
     }
 
@@ -103,18 +163,21 @@ async function connectToWhatsApp() {
             await countTokens(chatSession)
 
             const result = await chatSession.sendMessage(message, { useCache: true });
-            const responseText = (await result.response.text())?.replaceAll('**', '') || "Maaf, aku belum paham maksud kamu.";
-            console.log("Penggunaan Token:", result.response.usageMetadata.totalTokenCount);
+            const responseText = (await result.response.text())?.replaceAll('**', '') || "Maaf, aku belum paham maksud kamu."
+            console.log(`Penggunaan Token: ${result.response.usageMetadata.totalTokenCount}\n`)
 
             if (quotedMsg) {
-                await sock.sendMessage(sender, { text: responseText }, { quoted: quotedMsg });
+                await sock.sendMessage(sender, { text: responseText }, { quoted: quotedMsg })
+                
             } else {
-                await sock.sendMessage(sender, { text: responseText });
+                await sock.sendMessage(sender, { text: responseText })
             }
+
+            saveChatHistory(sender, message, responseText)
 
         } catch (err) {
             console.error("Error processing message:", err);
-            await sock.sendMessage(sender, { text: 'Terima kasih, mohon menunggu update selanjutnya..' });
+            await sock.sendMessage(sender, { text: 'Terima kasih, mohon menunggu update selanjutnya..' })
         }
     }
 
@@ -124,7 +187,7 @@ async function connectToWhatsApp() {
     // messages.upsert listener
     sock.ev.on('messages.upsert', async (m) => {
         const msg = m.messages[0];
-        if (!msg?.message || msg.key.fromMe) return;
+        if (!msg?.message || msg.key.fromMe) return
 
         const sender = msg.key.remoteJid;
         const messageType = Object.keys(msg.message)[0];
@@ -134,26 +197,43 @@ async function connectToWhatsApp() {
         console.log(`Message Type: ${messageType}`);
 
         if (messageType === 'conversation' || messageType === 'extendedTextMessage') {
+            await sock.readMessages([msg.key])
             const messageContent = msg.message.conversation || msg.message.extendedTextMessage?.text || ""
-            await sock.readMessages([msg.key]);
-            
-            console.log('Pesan :', messageContent)
-            
-        
-            // Check handleUserInteraction to determine response
-            const responseOngkir = await handleUserInteraction(sender, messageContent)
-            const responseProduct = await handleUserQuestion(sender, messageContent)
 
+            const responseOngkir = await handleUserInteraction(sender, messageContent)
             if (responseOngkir) {
-                // If handleUserInteraction handles the message, use its response
-                await sock.sendMessage(sender, { text: responseOngkir });
-            } else if (responseProduct) {
-                // If handleUserQuestion handles the message, use its response
-                await sock.sendMessage(sender, { text: responseProduct });
-            } else {
-                // If no handler is found, process the message with AI
-                await processMessage(messageContent, sender, quotedMsg);
+                await sock.sendMessage(sender, { text: responseOngkir })
+                saveChatHistory(sender, messageContent, responseOngkir)
+                return
             }
+            
+            const productKeyword = ['berapa', 'brp', 'harga', 'jual apa', 'produk', 'berapaan']
+            const containsKeyword = productKeyword.some(keyword => messageContent.toLowerCase().includes(keyword))
+
+            if(containsKeyword) {
+                const mimeType = "application/pdf"
+                const filePath = path.join(__dirname, 'data/product.pdf')
+                const fileParts = fileToGenerativePart(filePath, mimeType)
+
+                const message = messageContent ? [messageContent, fileParts] : fileParts
+                await processMessage(message, sender, quotedMsg)
+                
+
+            } else if(messageContent.toLowerCase().includes(keywordPayment)) {
+                const paymentData = await readJsonFile()
+
+                await processMessage(messageContent, sender, paymentData)
+
+            } else if(messageContent.toLowerCase().includes('total')) {
+                const readChat = getChatHistoryBySender(sender)
+                console.log('Chat History:', readChat)
+
+                await processMessage(messageContent, sender, quotedMsg)
+
+            } else {
+                await processMessage(messageContent, sender, quotedMsg)
+            }
+
 
         } else if (messageType === 'imageMessage' && sender !== 'status@broadcast') {
             console.log('Cek sender', sender)
