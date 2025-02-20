@@ -26,7 +26,15 @@ This is a WhatsApp bot that uses Gemini AI to process messages. The bot listens 
 
 ## Usage
 
-Send messages to the WhatsApp bot, and it will respond using Gemini AI.
+Send messages to the WhatsApp bot, and it will respond using Gemini AI. You can also send image messages with captions.
+
+## Important Files
+
+- `.env`: This file contains the environment variables, including the Gemini API key.
+- `main.js`: This is the main file that runs the bot.
+- `helpers/helpers.js`: This file contains helper functions.
+- `Middleware/gemini.js`: This file contains the Gemini AI middleware.
+- `data/chat_history.json`: This file contains the chat history.
 
 ## Author
 
