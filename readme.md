@@ -1,40 +1,72 @@
-# WhatsApp Bot with Gemini AI
+# WhatsApp Customer Service Bot
 
-This is a WhatsApp bot that uses Gemini AI to process messages. The bot listens for messages, checks if there's a user interaction handler, and if not, uses AI to generate a response.
+A WhatsApp bot powered by Google's Gemini AI that helps manage customer service interactions, including:
+- Product inquiries
+- Order processing
+- Payment confirmations
+- Shipping cost calculations
 
 ## Features
 
-- Processes text messages using Gemini AI
-- Handles user interactions
-- Can process image messages with captions
+- 🤖 AI-powered responses using Gemini AI
+- 💬 Natural conversation handling
+- 💳 Automatic bank transfer information
+- 📦 Shipping cost calculator
+- 🖼️ Image processing capability
+- 💾 Chat history tracking
 
-## Setup
+## Prerequisites
 
-1.  Install dependencies:
+- Node.js v14 or higher
+- WhatsApp account
+- Google Gemini API key
 
-    ```bash
-    npm install
-    ```
+## Installation
 
-2.  Set up the .env file with the necessary environment variables, including the Gemini API key.
+1. Clone the repository:
+```bash
+git clone [your-repository-url]
+cd watsap-cs
+```
 
-3.  Run the bot:
+2. Install dependencies:
+```bash
+npm install
+```
 
-    ```bash
-    node main.js
-    ```
+3. Create `.env` file:
+```env
+GEMINI_API=your_gemini_api_key
+```
+
+4. Configure bank information in `data/bank.json`
 
 ## Usage
 
-Send messages to the WhatsApp bot, and it will respond using Gemini AI. You can also send image messages with captions.
+Start the bot:
+```bash
+node main.js
+```
 
-## Important Files
+Scan the QR code with WhatsApp to connect.
 
-- `.env`: This file contains the environment variables, including the Gemini API key.
-- `main.js`: This is the main file that runs the bot.
-- `helpers/helpers.js`: This file contains helper functions.
-- `Middleware/gemini.js`: This file contains the Gemini AI middleware.
-- `data/chat_history.json`: This file contains the chat history.
+## Configuration
+
+- Edit `bank.json` to update payment information
+- Modify keywords in `main.js` to customize trigger words
+- Adjust AI prompt in system instructions for different responses
+
+## Contributing
+
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
+3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
+4. Push to the branch (`git push origin feature/AmazingFeature`)
+5. Open a Pull Request
+
+## License
+
+This project is licensed under the MIT License - see the LICENSE file for details.
 
 ## Author
 
