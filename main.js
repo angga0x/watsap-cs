@@ -9,7 +9,7 @@ require('dotenv').config()
 
 // Initialize Gemini AI
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API);
-const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash", systemInstruction: "Kamu adalah Clara yang membantu user melakukan pemesanan. Gunakan bahasa yang ramah dan friendly" });
+const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash", systemInstruction: "Kamu adalah Virtual Asisten yang akan membantu mengkonfirmasi pemesanan pelanggan. Gunakan sebutan 'kak' kepada customer." });
 
 
 //Keyword Ongkir
@@ -131,7 +131,7 @@ async function connectToWhatsApp() {
     // Get chat session function
     async function getChatSession(sender) {
         if (!chatSessions.has(sender)) {
-            const initialPrompt = `Kamu adalah CS Clara, Gunakan bahasa yang Friendly. Gunakan penyebutan aku dan kamu, dan panggilan kak kepada customer.`;
+            const initialPrompt = `Kamu adalah Asisten Virtual`;
             const chatSession = model.startChat({
                 generationConfig,
                 history: [{ role: "user", parts: [{ text: initialPrompt }] }]
@@ -207,17 +207,11 @@ async function connectToWhatsApp() {
                 return
             }
             
-            const productKeyword = ['berapa', 'brp', 'harga', 'jual apa', 'produk', 'berapaan']
+            const productKeyword = ['berapa', 'brp', 'harga', 'jual apa', 'produk', 'berapaan', 'hrg']
             const containsKeyword = productKeyword.some(keyword => messageContent.toLowerCase().includes(keyword))
 
             if(containsKeyword) {
-                const mimeType = "application/pdf"
-                const filePath = path.join(__dirname, 'data/product.pdf')
-                const fileParts = fileToGenerativePart(filePath, mimeType)
-
-                const message = messageContent ? [messageContent, fileParts] : fileParts
-                await processMessage(message, sender, quotedMsg)
-                
+                await processMessage(messageContent, sender, quotedMsg)
 
             } else if(messageContent.toLowerCase().includes(keywordPayment)) {
                 const paymentData = await readJsonFile()
@@ -267,11 +261,12 @@ async function connectToWhatsApp() {
 
             } catch (error) {
                 console.error("Error downloading or processing image:", error);
-                await sock.sendMessage(sender, { text: "Gagal mengunduh atau memproses gambar." });
+                await sock.sendMessage(sender, { text: "Gagal mengunduh atau memproses gambar." })
+
             } finally {
                 try {
                     unlinkSync(filePath);
-                    console.log("Image file deleted.");
+                    console.log("Image file deleted.")
                 } catch (deleteError) {
                     console.error("Error deleting image file:", deleteError);
                 }
