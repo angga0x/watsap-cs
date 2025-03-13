@@ -25,8 +25,8 @@ A WhatsApp bot powered by Google's Gemini AI that helps manage customer service 
 
 1. Clone the repository:
 ```bash
-git clone [your-repository-url]
-cd watsap-cs
+git clone https://github.com/angga0x/whatsai-cs.git
+cd whatsai-cs
 ```
 
 2. Install dependencies:
