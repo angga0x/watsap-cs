@@ -9,11 +9,10 @@ require('dotenv').config()
 
 // Initialize Gemini AI
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API);
-const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash", systemInstruction: "Kamu adalah Virtual Asisten yang akan membantu mengkonfirmasi pemesanan pelanggan. Gunakan sebutan 'kak' kepada customer." });
-
-
-//Keyword Ongkir
-const keywordPayment = ['transfer', 'tf']
+const model = genAI.getGenerativeModel({ 
+    model: "gemini-2.0-flash", 
+    systemInstruction: "Kamu adalah Virtual Asisten yang akan membantu mengkonfirmasi pemesanan pelanggan. Gunakan sebutan 'kak' kepada customer. Jika ada detail pesanan dan metode pembayaran transfer bank, berikan konfirmasi pesanan dengan format yang rapi dan minta customer melakukan pembayaran." 
+});
 
 // Delay function
 function delay(ms) {
@@ -39,13 +38,15 @@ function fileToGenerativePart(path, mimeType) {
 // Functionn Baca JSON
 function readJsonFile() {
     try {
-        const data = fs.readFile('data/payment.json', 'utf8');
+        const data = fs.readFileSync('data/bank.json', 'utf8');
         const jsonData = JSON.parse(data);
-        console.log(jsonData)
+        console.log('Bank data:', jsonData);
         return jsonData
 
+
     } catch (err) {
-        console.error('Error reading file:', err);
+        console.error('Error reading bank file:', err);
+        return null;
     }
 }
 
@@ -149,6 +150,7 @@ async function connectToWhatsApp() {
             })
             console.log(`Total token saat ini: ${countResult.totalTokens}`)
             return countResult.totalTokens
+            
         } catch (error) {
             console.error("Error menghitung token:", error)
             return null
@@ -158,17 +160,35 @@ async function connectToWhatsApp() {
     // Process message function
     async function processMessage(message, sender, quotedMsg) {
         try {
-
             const chatSession = await getChatSession(sender)
             await countTokens(chatSession)
 
-            const result = await chatSession.sendMessage(message, { useCache: true });
+            let finalMessage = message;
+            
+            // If message contains order details and payment method is bank transfer
+            if (typeof message === 'string' && 
+                (message.toLowerCase().includes('transfer bank') || 
+                 message.toLowerCase().includes('metode pembayaran: transfer bank'))) {
+                
+                const bankData = await readJsonFile();
+                if (bankData && bankData.banks) {
+                    const bankInfo = bankData.banks.map(bank => 
+                        `Bank ${bank.name}\nNo. Rekening: ${bank.account_number}\nAtas Nama: ${bank.account_holder}`
+                    ).join('\n\n');
+                    
+                    finalMessage = `${message}\n\nBerikut detail rekening untuk pembayaran:\n${bankInfo}\n\nMohon segera melakukan pembayaran dan kirimkan bukti transfer.`;
+                }
+            }
+
+            const result = await chatSession.sendMessage(finalMessage, { useCache: true });
             const responseText = (await result.response.text())?.replaceAll('**', '') || "Maaf, aku belum paham maksud kamu."
             console.log(`Penggunaan Token: ${result.response.usageMetadata.totalTokenCount}\n`)
 
+            // Add 3 second delay before sending message
+            await delay(3000);
+
             if (quotedMsg) {
-                await sock.sendMessage(sender, { text: responseText }, { quoted: quotedMsg })
-                
+                await sock.sendMessage(sender, { text: responseText }, { quoted: msg })
             } else {
                 await sock.sendMessage(sender, { text: responseText })
             }
@@ -177,6 +197,7 @@ async function connectToWhatsApp() {
 
         } catch (err) {
             console.error("Error processing message:", err);
+            await delay(3000); // Add delay even for error messages
             await sock.sendMessage(sender, { text: 'Terima kasih, mohon menunggu update selanjutnya..' })
         }
     }
@@ -202,8 +223,16 @@ async function connectToWhatsApp() {
 
             const responseOngkir = await handleUserInteraction(sender, messageContent)
             if (responseOngkir) {
+                await delay(3000); // Add delay for ongkir response
                 await sock.sendMessage(sender, { text: responseOngkir })
                 saveChatHistory(sender, messageContent, responseOngkir)
+                return
+            }
+
+            // Check if message contains order details
+            if (messageContent.includes('Order Details') || 
+                messageContent.toLowerCase().includes('transfer bank')) {
+                await processMessage(messageContent, sender, quotedMsg)
                 return
             }
             
@@ -212,23 +241,13 @@ async function connectToWhatsApp() {
 
             if(containsKeyword) {
                 await processMessage(messageContent, sender, quotedMsg)
-
-            } else if(messageContent.toLowerCase().includes(keywordPayment)) {
-                const paymentData = await readJsonFile()
-
-                await processMessage(messageContent, sender, paymentData)
-
             } else if(messageContent.toLowerCase().includes('total')) {
                 const readChat = getChatHistoryBySender(sender)
                 console.log('Chat History:', readChat)
-
                 await processMessage(messageContent, sender, quotedMsg)
-
             } else {
                 await processMessage(messageContent, sender, quotedMsg)
             }
-
-
         } else if (messageType === 'imageMessage' && sender !== 'status@broadcast') {
             console.log('Cek sender', sender)
 
@@ -271,7 +290,9 @@ async function connectToWhatsApp() {
                     console.error("Error deleting image file:", deleteError);
                 }
             }
-        } // ... (Tambahkan penanganan untuk audioMessage jika diperlukan)
+        } else {
+            await sock.sendMessage(sender, { text: 'Pesan kakak akan diteruskan ke admin.\nMohon tunggu sebentar ya kakak..' })
+        }
     });
 }
 

@@ -1,1 +1,18 @@
+# Dependencies
+node_modules/
+
+# Environment variables
+.env
+
+# Baileys auth files
 auth_info_baileys/
+
+# Runtime files
+*.jpg
+*.pdf
+
+# Logs
+*.log
+
+# Chat history
+data/chat_history.json
